@@ -15,6 +15,8 @@ export const authOptions: NextAuthOptions = {
 
       // Now we need to define some custom logic to authorize the user.
       async authorize(credentials) {
+        console.log("Credentials received:", credentials); // Add this to debug
+
         if (!credentials?.email || !credentials?.password) {
           throw new Error("Missing email or passsword");
         }
@@ -30,7 +32,7 @@ export const authOptions: NextAuthOptions = {
           // Compare the password with the hashed password
           const isValid = await bcrypt.compare(
             credentials.password,
-            user.passsword
+            user.password
           );
 
           if (!isValid) {
