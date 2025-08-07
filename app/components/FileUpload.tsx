@@ -20,16 +20,23 @@ const FileUpload = ({ onSuccess, onProgress, fileType }: FileUploadProps) => {
   const [uploading, setUploading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  //optional validation
-
   const validateFile = (file: File) => {
     if (fileType === "video") {
-      if (!file.type.startsWith("video/")) {
-        setError("Please upload a valid video file");
+      const validVideoTypes = ["video/mp4", "video/webm", "video/ogg"];
+      if (!validVideoTypes.includes(file.type)) {
+        setError("Please upload a valid video file (MP4, WebM, or OGG)");
+        return false;
+      }
+    } else if (fileType === "image") {
+      const validImageTypes = ["image/jpeg", "image/png", "image/gif"];
+      if (!validImageTypes.includes(file.type)) {
+        setError("Please upload a valid image file (JPEG, PNG, or GIF)");
+        return false;
       }
     }
     if (file.size > 100 * 1024 * 1024) {
       setError("File size must be less than 100 MB");
+      return false;
     }
     return true;
   };
@@ -44,17 +51,29 @@ const FileUpload = ({ onSuccess, onProgress, fileType }: FileUploadProps) => {
 
     try {
       const authRes = await fetch("/api/auth/imagekit-auth");
+      if (!authRes.ok) {
+        throw new Error("Failed to fetch ImageKit authentication parameters");
+      }
       // get the auth object from the response
       const auth = await authRes.json();
+
+      // Check for error in the response
+      if (auth.error) {
+        throw new Error(auth.error);
+      }
+
+      // Access nested authenticationParameters
+      const { token, signature, expire } = auth.authenticationParameters;
 
       // ImageKit upload options
       const res = await upload({
         file,
         fileName: file.name,
-        publicKey: process.env.NEXT_PUBLIC_PUBLIC_KEY!,
-        signature: auth.signature,
-        expire: auth.expire,
-        token: auth.token,
+        // publicKey: process.env.NEXT_PUBLIC_PUBLIC_KEY!,
+        publicKey: auth.publicKey, // Use publicKey from the response
+        signature,
+        expire,
+        token,
         onProgress: (event) => {
           if (event.lengthComputable && onProgress) {
             const percent = (event.loaded / event.total) * 100;
