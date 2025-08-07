@@ -7,35 +7,45 @@ import {
   // ImageKitUploadNetworkError,
   upload,
 } from "@imagekit/next";
-import { useState } from "react";
+import React, { useState } from "react";
 
 interface FileUploadProps {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   onSuccess: (res: any) => void;
   onProgress?: (progress: number) => void;
+  onError?: (error: string) => void;
   fileType?: "image" | "video";
 }
 
-const FileUpload = ({ onSuccess, onProgress, fileType }: FileUploadProps) => {
+const FileUpload = ({
+  onSuccess,
+  onProgress,
+  onError,
+  fileType,
+}: FileUploadProps) => {
   const [uploading, setUploading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [progress, setProgress] = useState<number | null>(null);
 
   const validateFile = (file: File) => {
     if (fileType === "video") {
       const validVideoTypes = ["video/mp4", "video/webm", "video/ogg"];
       if (!validVideoTypes.includes(file.type)) {
         setError("Please upload a valid video file (MP4, WebM, or OGG)");
+        onError?.("Please upload a valid video file (MP4, WebM, or OGG)");
         return false;
       }
     } else if (fileType === "image") {
       const validImageTypes = ["image/jpeg", "image/png", "image/gif"];
       if (!validImageTypes.includes(file.type)) {
         setError("Please upload a valid image file (JPEG, PNG, or GIF)");
+        onError?.("Please upload a valid image file (JPEG, PNG, or GIF)");
         return false;
       }
     }
     if (file.size > 100 * 1024 * 1024) {
       setError("File size must be less than 100 MB");
+      onError?.("File size must be less than 100 MB");
       return false;
     }
     return true;
@@ -48,6 +58,7 @@ const FileUpload = ({ onSuccess, onProgress, fileType }: FileUploadProps) => {
 
     setUploading(true);
     setError(null);
+    setProgress(0);
 
     try {
       const authRes = await fetch("/api/auth/imagekit-auth");
@@ -64,6 +75,9 @@ const FileUpload = ({ onSuccess, onProgress, fileType }: FileUploadProps) => {
 
       // Access nested authenticationParameters
       const { token, signature, expire } = auth.authenticationParameters;
+      if (!token || !signature || !expire) {
+        throw new Error("Missing authentication parameters");
+      }
 
       // ImageKit upload options
       const res = await upload({
@@ -77,63 +91,62 @@ const FileUpload = ({ onSuccess, onProgress, fileType }: FileUploadProps) => {
         onProgress: (event) => {
           if (event.lengthComputable && onProgress) {
             const percent = (event.loaded / event.total) * 100;
+            setProgress(Math.round(percent));
             onProgress(Math.round(percent));
           }
         },
       });
       onSuccess(res);
-    } catch (error) {
-      console.error("Upload failed", error);
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    } catch (error: any) {
+      console.error("Upload failed:", error);
+      const errorMessage = error.message || "Failed to upload file";
+      setError(errorMessage);
+      onError?.(errorMessage);
     } finally {
       setUploading(false);
     }
   };
 
   return (
-    <div className="w-full max-w-md p-8 space-y-6 bg-gray-800 rounded-xl shadow-2xl">
-      <div className="flex flex-col items-center space-y-4">
-        <label
-          htmlFor="file-upload"
-          className="w-full px-4 py-3 bg-gray-700 text-white text-center rounded-lg border border-gray-600 hover:bg-gray-600 cursor-pointer transition duration-300"
-        >
-          <span className="font-semibold">
-            {fileType === "video" ? "Upload Video" : "Upload Image"}
-          </span>
-          <input
-            id="file-upload"
-            type="file"
-            accept={fileType === "video" ? "video/*" : "image/*"}
-            onChange={handleFileChange}
-            className="hidden"
-          />
-        </label>
-        {uploading && (
-          <span className="text-gray-300 flex items-center space-x-2">
-            <svg
-              className="animate-spin h-5 w-5 text-blue-500"
-              xmlns="http://www.w3.org/2000/svg"
-              fill="none"
-              viewBox="0 0 24 24"
-            >
-              <circle
-                className="opacity-25"
-                cx="12"
-                cy="12"
-                r="10"
-                stroke="currentColor"
-                strokeWidth="4"
-              ></circle>
-              <path
-                className="opacity-75"
-                fill="currentColor"
-                d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"
-              ></path>
-            </svg>
-            <span>Loading...</span>
-          </span>
-        )}
-        {error && <span className="text-red-500 font-medium">{error}</span>}
-      </div>
+    <div className="w-full space-y-4">
+      <label
+        htmlFor="file-upload"
+        className="w-full px-4 py-3 bg-gray-700 text-white text-center rounded-lg border border-gray-600 hover:bg-gray-600 cursor-pointer transition duration-300"
+      >
+        <span className="font-semibold">
+          {fileType === "video" ? "Upload Video" : "Upload Image"}
+        </span>
+        <input
+          id="file-upload"
+          type="file"
+          accept={
+            fileType === "video"
+              ? "video/mp4,video/webm,video/ogg"
+              : "image/jpeg,image/png,image/gif"
+          }
+          onChange={handleFileChange}
+          className="hidden"
+        />
+      </label>
+      {uploading && (
+        <div className="w-full mt-5">
+          <div className="relative pt-1">
+            <div className="flex mb-2 items-center justify-between">
+              <span className="text-gray-300 text-sm">
+                {progress ? `Uploading: ${progress}%` : "Loading..."}
+              </span>
+            </div>
+            <div className="w-full bg-gray-600 rounded-full h-2.5">
+              <div
+                className="bg-blue-500 h-2.5 rounded-full transition-all duration-300"
+                style={{ width: `${progress || 0}%` }}
+              ></div>
+            </div>
+          </div>
+        </div>
+      )}
+      {error && <span className="text-red-500 font-medium">{error}</span>}
     </div>
   );
 };
