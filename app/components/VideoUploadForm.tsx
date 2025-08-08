@@ -61,7 +61,7 @@ const VideoUploadForm = () => {
       };
 
       const apiResponse = await fetch(
-        `${process.env.NEXT_PUBLIC_API_BASE_URL}/api/video`,
+        `/api/video`,
         {
           method: "POST",
           body: JSON.stringify(data),
