@@ -19,6 +19,25 @@ export interface IVideo {
   };
 }
 
+export interface UploadResponse {
+  fileId: string,
+  name: string,
+  size: number,
+  versionInfo: { id: string; name: string },
+  filePath: string,
+  url: string,
+  height: number,
+  width: number,
+  bitRate: number,
+  duration: number,
+  audioCodec: string,
+  videoCodec: string,
+  fileType: string,
+  AITags: string[] | null,
+  description: string | null,
+}
+
+
 // Create Video Schema
 const videoSchema = new Schema<IVideo>(
   {
