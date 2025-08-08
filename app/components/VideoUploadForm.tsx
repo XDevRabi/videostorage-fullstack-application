@@ -25,10 +25,64 @@ const VideoUploadForm = () => {
   const [uploadResult, setUploadResult] = useState<UploadResponse | null>(null);
   const [error, setError] = useState<string | null>(null);
 
-  const onSuccess = (response: UploadResponse) => {
-    console.log("Upload successful:", response);
-    setUploadResult(response);
-    setError(null);
+  const onSuccess = async (response: UploadResponse) => {
+    //   {
+    //     "fileId": "6895a5ff5c7cd75eb8f1bc8f",
+    //     "name": "BB_ZyldzI4F-.mp4",
+    //     "size": 8070530,
+    //     "versionInfo": {
+    //         "id": "6895a5ff5c7cd75eb8f1bc8f",
+    //         "name": "Version 1"
+    //     },
+    //     "filePath": "/BB_ZyldzI4F-.mp4",
+    //     "url": "https://ik.imagekit.io/xdevrabi/BB_ZyldzI4F-.mp4",
+    //     "height": 720,
+    //     "width": 1152,
+    //     "bitRate": 239642,
+    //     "duration": 172,
+    //     "audioCodec": "aac",
+    //     "videoCodec": "h264",
+    //     "fileType": "non-image",
+    //     "AITags": null,
+    //     "description": null
+    // }
+    try {
+      const data = {
+        title: response.name.split(".")[0],
+        description: response.description || "Uploaded video",
+        videoUrl: response.url,
+        thumbnailUrl: `${response.url}?tr=w-300,h-300`,
+        controls: true,
+        transformation: {
+          height: response.height,
+          width: response.width,
+          quality: 80,
+        },
+      };
+
+      const apiResponse = await fetch(
+        `${process.env.NEXT_PUBLIC_API_BASE_URL}/api/video`,
+        {
+          method: "POST",
+          body: JSON.stringify(data),
+          headers: {
+            "Content-Type": "application/json",
+          },
+        }
+      );
+
+      if (!apiResponse.ok) {
+        const errorData = await apiResponse.json();
+        throw new Error(errorData.error || "Failed to create video record");
+      }
+
+      setUploadResult(response);
+      setError(null);
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    } catch (err:any) {
+      setError(err.message);
+      console.error("API Error:", err);
+    }
   };
 
   const onProgress = (percent: number) => {
