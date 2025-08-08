@@ -1,11 +1,8 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
-import { IVideo } from "@/models/Video";
-
-export type VideoFormData = Omit<IVideo, "_id">;
+import { IVideo, UploadResponse } from "@/models/Video";
 
 type FetchOptions = {
   method?: "GET" | "POST" | "PUT" | "DELETE";
-  body?: any;
+  body?: unknown;
   headers?: Record<string, string>;
 };
 
@@ -21,25 +18,33 @@ class ApiClient {
       ...headers,
     };
 
-    const response = await fetch(`/api${endpoint}`, {
-      method,
-      headers: defaultHeaders,
-      body: body ? JSON.stringify(body) : undefined,
-    });
+    try {
+      const response = await fetch(`/api${endpoint}`, {
+        method,
+        headers: defaultHeaders,
+        body: body ? JSON.stringify(body) : undefined,
+      });
 
-    if (!response.ok) {
-      throw new Error(await response.text());
+      if (!response.ok) {
+        const errorText = await response.text().catch(() => "No error message available");
+        throw new Error(
+          `HTTP ${response.status}: ${errorText || "Request failed"}`
+        );
+      }
+
+      return response.json();
+    } catch (error) {
+      console.error(`Fetch error for ${endpoint}:`, error);
+      throw error;
     }
-
-    return response.json();
   }
 
-  async getVideos() {
-    return this.fetch("/videos");
+  async getVideos(): Promise<IVideo[]> {
+    return this.fetch<IVideo[]>("/videos");
   }
 
-  async createVideo(videoData: VideoFormData) {
-    return this.fetch("/videos", {
+  async createVideo(videoData: UploadResponse): Promise<IVideo> {
+    return this.fetch<IVideo>("/videos", {
       method: "POST",
       body: videoData,
     });
